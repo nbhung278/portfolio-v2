@@ -125,7 +125,7 @@ const features = [
     background: (
       <div className="w-full h-full flex items-center justify-center">
         <Image
-          src="/images/aws-dva.png"
+          src="/images/aws-dva-1.png"
           alt="AWS DVA"
           width={200}
           height={200}
