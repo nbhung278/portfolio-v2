@@ -1,3 +1,4 @@
+import { ContentGrid } from "@/components/ContentGrid";
 import Introduction from "@/components/Introduction";
 import Navbar from "@/components/Navbar";
 import { DotPattern } from "@/components/ui/dot-pattern";
@@ -17,8 +18,9 @@ export default function Home() {
         )}
       />
       <Navbar />
-      <main className="flex flex-col items-center justify-center px-3 py-24 w-full md:px-4">
+      <main className="flex flex-col items-center justify-center px-3 py-24 w-full md:px-4 gap-24">
         <Introduction />
+        <ContentGrid />
       </main>
     </div>
   );
