@@ -7,6 +7,8 @@ import { BentoCard, BentoGrid } from "../ui/bento-grid";
 import { Marquee } from "../ui/marquee";
 import { IconCloud } from "../ui/icon-cloud";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useMemo, useCallback, memo } from "react";
 
 const files = [
   {
@@ -62,68 +64,77 @@ const downloadFile = (path: string, filename?: string) => {
   link.click();
   document.body.removeChild(link);
 };
-const features = [
-  {
-    Icon: FileTextIcon,
-    name: "Download My Resume",
-    description:
-      "A quick summary of my experience, projects, and skills — available for download.",
-    href: "/downloads/Nguyen-Ba-Hung-11112025.pdf",
-    className: "col-span-3 lg:col-span-1",
-    background: (
-      <Marquee
-        pauseOnHover
-        className="absolute top-10 mask-[linear-gradient(to_top,transparent_40%,#000_100%)] [--duration:20s]"
+
+const RESUME_PATH = "/downloads/Nguyen-Ba-Hung-11112025.pdf";
+
+// Memoized file item component to avoid recreating on every render
+const FileItem = memo(({ file }: { file: (typeof files)[number] }) => {
+  const handleDownload = useCallback(() => {
+    downloadFile(RESUME_PATH, file.name);
+  }, [file.name]);
+
+  return (
+    <figure
+      className={cn(
+        "relative w-32 cursor-pointer overflow-hidden rounded-xl border p-4",
+        "border-gray-950/10 bg-gray-950/1 hover:bg-gray-950/5",
+        "dark:border-gray-50/10 dark:bg-gray-50/10 dark:hover:bg-gray-50/15",
+        "transform-gpu blur-[1px] transition-all duration-300 ease-out hover:blur-none"
+      )}
+    >
+      <div
+        className="flex flex-row items-center gap-2"
+        onClick={handleDownload}
       >
-        {files.map((f, idx) => (
-          <figure
-            key={idx}
-            className={cn(
-              "relative w-32 cursor-pointer overflow-hidden rounded-xl border p-4",
-              "border-gray-950/10 bg-gray-950/1 hover:bg-gray-950/5",
-              "dark:border-gray-50/10 dark:bg-gray-50/10 dark:hover:bg-gray-50/15",
-              "transform-gpu blur-[1px] transition-all duration-300 ease-out hover:blur-none"
-            )}
-          >
-            <div
-              className="flex flex-row items-center gap-2"
-              onClick={() =>
-                downloadFile("/downloads/Nguyen-Ba-Hung-11112025.pdf", f.name)
-              }
-            >
-              <div className="flex flex-col">
-                <figcaption className="text-sm font-medium dark:text-white">
-                  {f.name}
-                </figcaption>
-              </div>
-            </div>
-            <blockquote className="mt-2 text-xs">{f.body}</blockquote>
-          </figure>
-        ))}
-      </Marquee>
-    ),
-  },
-  {
-    Icon: Share2Icon,
-    name: "Tech Stack",
-    description: "The tools I rely on to build performant.",
-    href: "#",
-    className: "lg:col-span-1",
-    background: (
-      <div className="w-full h-full flex items-center justify-center cursor-pointer">
-        <IconCloud images={images} size={200} />
+        <div className="flex flex-col">
+          <figcaption className="text-sm font-medium dark:text-white">
+            {file.name}
+          </figcaption>
+        </div>
       </div>
-    ),
-  },
-  {
-    Icon: Network,
-    name: "Certifications",
-    description:
-      "This is my certifications, you can see more details in my resume.",
-    href: "#",
-    className: "lg:col-span-1",
-    background: (
-      <div className="w-full h-full flex items-center justify-center cursor-pointer">
+      <blockquote className="mt-2 text-xs">{file.body}</blockquote>
+    </figure>
+  );
+});
+
+FileItem.displayName = "FileItem";
+
+// Memoized background components
+const ResumeBackground = memo(() => {
+  const fileItems = useMemo(
+    () => files.map((file) => <FileItem key={file.name} file={file} />),
+    []
+  );
+
+  return (
+    <Marquee
+      pauseOnHover
+      className="absolute top-10 mask-[linear-gradient(to_top,transparent_40%,#000_100%)] [--duration:20s]"
+    >
+      {fileItems}
+    </Marquee>
+  );
+});
+
+ResumeBackground.displayName = "ResumeBackground";
+
+const TechStackBackground = memo(() => {
+  return (
+    <div className="w-full h-full flex items-center justify-center cursor-pointer">
+      <IconCloud images={images} size={200} />
+    </div>
+  );
+});
+
+TechStackBackground.displayName = "TechStackBackground";
+
+const CertificationsBackground = memo(
+  ({ onNavigate }: { onNavigate: () => void }) => {
+    return (
+      <div
+        className="w-full h-full flex items-center justify-center cursor-pointer"
+        onClick={onNavigate}
+      >
         <Image
           src="/images/aws-dva-1.png"
           alt="AWS DVA"
@@ -131,15 +142,56 @@ const features = [
           height={200}
         />
       </div>
-    ),
-  },
-];
+    );
+  }
+);
+
+CertificationsBackground.displayName = "CertificationsBackground";
 
 export default function ContentGrid() {
+  const router = useRouter();
+
+  const handleNavigateToExperience = useCallback(() => {
+    router.push("/experience");
+  }, [router]);
+
+  const features = useMemo(() => {
+    return [
+      {
+        Icon: FileTextIcon,
+        name: "Download My Resume",
+        description:
+          "A quick summary of my experience, projects, and skills — available for download.",
+        href: RESUME_PATH,
+        className: "col-span-3 lg:col-span-1",
+        background: <ResumeBackground />,
+      },
+      {
+        Icon: Share2Icon,
+        name: "Tech Stack",
+        description: "The tools I rely on to build performant.",
+        href: "#",
+        className: "lg:col-span-1",
+        background: <TechStackBackground />,
+      },
+      {
+        Icon: Network,
+        name: "Certifications",
+        description:
+          "This is my certifications, you can see more details in my resume.",
+        href: "#",
+        className: "lg:col-span-1",
+        background: (
+          <CertificationsBackground onNavigate={handleNavigateToExperience} />
+        ),
+      },
+    ];
+  }, [handleNavigateToExperience]);
+
   return (
     <BentoGrid>
-      {features.map((feature, idx) => (
-        <BentoCard key={idx} {...feature} />
+      {features.map((feature) => (
+        <BentoCard key={feature.name} {...feature} />
       ))}
     </BentoGrid>
   );
