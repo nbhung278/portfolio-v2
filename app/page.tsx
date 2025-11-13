@@ -2,6 +2,18 @@ import ContentGrid from "@/components/ContentGrid";
 import Introduction from "@/components/Introduction";
 import { DotPattern } from "@/components/ui/dot-pattern";
 import { cn } from "@/lib/utils";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Home",
+  description:
+    "Full-stack web developer Hung Nguyen's portfolio. 4 years of experience in Node.js, ReactJS, Laravel, Next.js, NestJS, AWS, and Docker. Based in Hanoi, Vietnam.",
+  openGraph: {
+    title: "Home | Hung Nguyen Portfolio",
+    description:
+      "Full-stack web developer with 4 years of experience building scalable applications.",
+  },
+};
 
 export default function Home() {
   return (
