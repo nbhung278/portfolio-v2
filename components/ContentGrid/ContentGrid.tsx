@@ -3,9 +3,9 @@ import { FileTextIcon } from "@radix-ui/react-icons";
 import { Network, Share2Icon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { BentoCard, BentoGrid } from "./ui/bento-grid";
-import { Marquee } from "./ui/marquee";
-import { IconCloud } from "./ui/icon-cloud";
+import { BentoCard, BentoGrid } from "../ui/bento-grid";
+import { Marquee } from "../ui/marquee";
+import { IconCloud } from "../ui/icon-cloud";
 import Image from "next/image";
 
 const files = [
@@ -110,7 +110,7 @@ const features = [
     href: "#",
     className: "lg:col-span-1",
     background: (
-      <div className="w-full h-full flex items-center justify-center">
+      <div className="w-full h-full flex items-center justify-center cursor-pointer">
         <IconCloud images={images} size={200} />
       </div>
     ),
@@ -123,7 +123,7 @@ const features = [
     href: "#",
     className: "lg:col-span-1",
     background: (
-      <div className="w-full h-full flex items-center justify-center">
+      <div className="w-full h-full flex items-center justify-center cursor-pointer">
         <Image
           src="/images/aws-dva-1.png"
           alt="AWS DVA"
@@ -135,7 +135,7 @@ const features = [
   },
 ];
 
-export function ContentGrid() {
+export default function ContentGrid() {
   return (
     <BentoGrid>
       {features.map((feature, idx) => (

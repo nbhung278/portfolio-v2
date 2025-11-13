@@ -5,6 +5,7 @@ import { ViewportProvider } from "@/components/providers/viewport-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { cn } from "@/lib/utils";
 
+import Navbar from "@/components/Navbar";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -41,8 +42,9 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <div className="flex min-h-screen flex-col">
+            <div className="flex min-h-screen flex-col pt-24">
               <main className="mx-auto w-full max-w-7xl px-4 md:w-4/5 lg:px-8">
+                <Navbar />
                 {children}
               </main>
             </div>

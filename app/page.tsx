@@ -1,6 +1,5 @@
-import { ContentGrid } from "@/components/ContentGrid";
+import ContentGrid from "@/components/ContentGrid";
 import Introduction from "@/components/Introduction";
-import Navbar from "@/components/Navbar";
 import { DotPattern } from "@/components/ui/dot-pattern";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +16,6 @@ export default function Home() {
           "mask-[linear-gradient(to_bottom_right,white,transparent,transparent)]"
         )}
       />
-      <Navbar />
       <main className="flex flex-col items-center justify-center px-3 py-24 w-full md:px-4 gap-24">
         <Introduction />
         <ContentGrid />
