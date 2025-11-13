@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { cn } from "@/lib/utils";
 
 import Navbar from "@/components/Navbar";
+import AIAssistant from "@/components/AIAssistant";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -104,6 +105,7 @@ export default function RootLayout({
               <main className="mx-auto w-full max-w-7xl px-4 md:w-4/5 lg:px-8 pt-[50px]">
                 <Navbar />
                 {children}
+                <AIAssistant />
               </main>
             </div>
           </ThemeProvider>
