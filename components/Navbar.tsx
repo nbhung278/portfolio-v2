@@ -5,17 +5,15 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Github, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ModeToggle } from "@/components/ModeToggle";
 import { Highlighter } from "./ui/highlighter";
 import { usePathname } from "next/navigation";
+import { TOP_OFFSET } from "@/constants/utils";
+import ModeToggle from "./ModeToggle";
 
 const Header = () => {
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [isSticky, setIsSticky] = useState(false);
-  const [headerHeight, setHeaderHeight] = useState(0);
   const pathname = usePathname();
-
-  const TOP_OFFSET = 24;
 
   useEffect(() => {
     const node = headerRef.current;
@@ -23,25 +21,17 @@ const Header = () => {
       return;
     }
 
-    const updateMeasurements = () => {
-      setHeaderHeight(node.offsetHeight);
-    };
-
-    updateMeasurements();
-
     const handleScroll = () => {
       const threshold = 2;
       setIsSticky(window.scrollY > threshold);
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", updateMeasurements);
 
     handleScroll();
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", updateMeasurements);
     };
   }, []);
 
@@ -50,7 +40,6 @@ const Header = () => {
     if (!node) {
       return;
     }
-    setHeaderHeight(node.offsetHeight);
   }, [isSticky]);
 
   const navItems = [
@@ -125,7 +114,6 @@ const Header = () => {
           </div>
         </div>
       </nav>
-      <div style={{ height: headerHeight + TOP_OFFSET }} aria-hidden="true" />
     </>
   );
 };
