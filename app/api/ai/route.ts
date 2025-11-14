@@ -114,6 +114,52 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		// Rate limiting: Kiểm tra giới hạn request theo user_id
+		const now = new Date();
+		const oneMinuteAgo = new Date(now.getTime() - 60 * 1000); // 1 phút trước
+		const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 giờ trước
+
+		// Kiểm tra request gần nhất (trong vòng 1 phút) theo user_id
+		const { data: recentRequests, error: recentError } = await supabase
+			.from("ai_history")
+			.select("created_at")
+			.eq("user_id", userId)
+			.gte("created_at", oneMinuteAgo.toISOString())
+			.order("created_at", { ascending: false })
+			.limit(1);
+
+		if (recentError) {
+			console.error("Error checking recent request:", recentError);
+			// Tiếp tục xử lý nếu có lỗi khi check limit
+		} else if (recentRequests && recentRequests.length > 0) {
+			return NextResponse.json(
+				{
+					error: "Bạn chỉ có thể gửi 1 câu hỏi mỗi phút. Vui lòng thử lại sau.",
+				},
+				{ status: 429 }
+			);
+		}
+
+		// Kiểm tra số lượng requests trong ngày (tối đa 10 requests) theo user_id
+		const { count: dailyCount, error: dailyError } = await supabase
+			.from("ai_history")
+			.select("*", { count: "exact", head: true })
+			.eq("user_id", userId)
+			.gte("created_at", oneDayAgo.toISOString());
+
+		if (dailyError) {
+			console.error("Error checking daily limit:", dailyError);
+			// Tiếp tục xử lý nếu có lỗi khi check limit
+		} else if (dailyCount !== null && dailyCount >= 10) {
+			return NextResponse.json(
+				{
+					error:
+						"Bạn đã đạt giới hạn 10 câu hỏi mỗi ngày. Vui lòng thử lại vào ngày mai.",
+				},
+				{ status: 429 }
+			);
+		}
+
 		// Chuẩn bị request body cho Nova Micro
 		// Nova Micro không hỗ trợ role "system" trong messages
 		// Thay vào đó, sử dụng field "system" riêng biệt (có thể là string hoặc array)
@@ -135,7 +181,7 @@ export async function POST(req: NextRequest) {
 				},
 			],
 			inferenceConfig: {
-				maxTokens: 1000,
+				maxTokens: 500,
 				temperature: 0.7,
 				topP: 0.9,
 			},
