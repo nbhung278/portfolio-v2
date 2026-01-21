@@ -33,10 +33,10 @@ const getOrCreateUserId = (): string => {
 };
 
 const SUGGESTED_QUESTIONS = [
-	"Bạn có kinh nghiệm gì?",
-	"Các dự án nổi bật của bạn?",
-	"Kỹ năng và công nghệ bạn sử dụng?",
-	"Làm thế nào để liên hệ với bạn?",
+	"Bạn đang làm dự án gì hiện tại?",
+	"Kể về dự án thú vị nhất đi!",
+	"Bạn có chứng chỉ AWS à?",
+	"Làm sao để liên hệ với bạn?",
 ];
 
 const AIAssistant = () => {
@@ -46,7 +46,7 @@ const AIAssistant = () => {
 			id: "1",
 			role: "assistant",
 			content:
-				"Xin chào! Tôi là Hưng (Peter). Bạn có thể hỏi tôi bất cứ điều gì về portfolio này hoặc về developer. Tôi có thể giúp gì cho bạn?",
+				"Chào bạn! Mình là Hưng đây 👋\n\nBạn đang tìm hiểu về portfolio của mình à? Cứ hỏi thoải mái nha, mình sẵn sàng chia sẻ về kinh nghiệm, dự án, hoặc bất cứ thứ gì bạn quan tâm! 😊",
 			timestamp: new Date(),
 		},
 	]);
