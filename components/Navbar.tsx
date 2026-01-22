@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, memo } from "react";
 import { Button } from "@/components/ui/button";
-import { Github, Heart } from "lucide-react";
+import { Github, Heart, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Highlighter } from "./ui/highlighter";
 import { usePathname } from "next/navigation";
 import { TOP_OFFSET } from "@/constants/utils";
 import ModeToggle from "./ModeToggle";
+import { AnimatePresence, motion } from "motion/react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
@@ -23,6 +24,7 @@ const SCROLL_THRESHOLD = 2;
 const Header = memo(() => {
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [isSticky, setIsSticky] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -37,6 +39,19 @@ const Header = memo(() => {
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isMobileMenuOpen]);
+
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   const containerClasses = cn(
     "pointer-events-auto flex w-full items-center justify-between gap-4 rounded-3xl border border-border/60 px-4 py-4 transition-all duration-300 ease-out sm:px-6 sm:py-6 lg:px-10",
@@ -101,9 +116,90 @@ const Header = memo(() => {
               </Link>
             </Button>
             <ModeToggle />
+
+            {/* Mobile Menu Button */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="lg:hidden cursor-pointer rounded-lg bg-secondary/60 text-secondary-foreground hover:bg-secondary/80"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle mobile menu"
+            >
+              {isMobileMenuOpen ? <X /> : <Menu />}
+            </Button>
           </div>
         </div>
       </nav>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+              onClick={closeMobileMenu}
+            />
+
+            {/* Mobile Menu Panel */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed right-0 top-0 z-50 h-full w-[75%] max-w-sm bg-background border-l border-border shadow-2xl lg:hidden"
+            >
+              <div className="flex flex-col h-full">
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-border">
+                  <h2 className="text-xl font-semibold text-foreground">Menu</h2>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={closeMobileMenu}
+                    aria-label="Close menu"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+
+                {/* Navigation Links */}
+                <nav className="flex-1 overflow-y-auto p-6">
+                  <ul className="space-y-1">
+                    {NAV_ITEMS.map((item) => (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={closeMobileMenu}
+                          className={cn(
+                            "block px-4 py-3 rounded-lg text-base font-medium transition-colors",
+                            pathname === item.href
+                              ? "bg-primary/10 text-primary"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                          )}
+                        >
+                          {item.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+
+                {/* Footer */}
+                <div className="p-6 border-t border-border">
+                  <p className="text-sm text-muted-foreground text-center">
+                    © 2026 Portfolio
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 });
