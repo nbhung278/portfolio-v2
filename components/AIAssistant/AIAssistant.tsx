@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageCircleQuestionMark, X, Send, Bot, User } from "lucide-react";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,10 +13,69 @@ interface Message {
 	timestamp: Date;
 }
 
-// Helper function để lấy hoặc tạo userId
+interface StreamingTextProps {
+	streamingRef: React.RefObject<string | null>;
+	onUpdate?: () => void;
+}
+
+const StreamingText = memo(({ streamingRef, onUpdate }: StreamingTextProps) => {
+	const [displayText, setDisplayText] = useState("");
+	const animationRef = useRef<number | null>(null);
+	const lastUpdateRef = useRef<number>(0);
+	const currentIndexRef = useRef(0);
+
+	useEffect(() => {
+		const animate = (timestamp: number) => {
+			if (timestamp - lastUpdateRef.current < 16) {
+				animationRef.current = requestAnimationFrame(animate);
+				return;
+			}
+			lastUpdateRef.current = timestamp;
+
+			const targetText = streamingRef.current || "";
+
+			if (currentIndexRef.current < targetText.length) {
+				const charsToAdd = Math.min(
+					3,
+					targetText.length - currentIndexRef.current
+				);
+				currentIndexRef.current += charsToAdd;
+				setDisplayText(targetText.slice(0, currentIndexRef.current));
+				onUpdate?.();
+			}
+
+			animationRef.current = requestAnimationFrame(animate);
+		};
+
+		animationRef.current = requestAnimationFrame(animate);
+
+		return () => {
+			if (animationRef.current) {
+				cancelAnimationFrame(animationRef.current);
+			}
+		};
+	}, [streamingRef, onUpdate]);
+
+	useEffect(() => {
+		const checkSync = () => {
+			const target = streamingRef.current || "";
+			if (target !== displayText && target.length <= currentIndexRef.current) {
+				setDisplayText(target);
+				currentIndexRef.current = target.length;
+			}
+		};
+
+		const interval = setInterval(checkSync, 100);
+		return () => clearInterval(interval);
+	}, [streamingRef, displayText]);
+
+	return <>{displayText}</>;
+});
+
+StreamingText.displayName = "StreamingText";
+
 const getOrCreateUserId = (): string => {
 	if (typeof window === "undefined") {
-		// Server-side: tạo temporary ID
 		return `temp-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 	}
 
@@ -24,7 +83,6 @@ const getOrCreateUserId = (): string => {
 	let userId = localStorage.getItem(storageKey);
 
 	if (!userId) {
-		// Tạo userId mới nếu chưa có
 		userId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 		localStorage.setItem(storageKey, userId);
 	}
@@ -33,11 +91,20 @@ const getOrCreateUserId = (): string => {
 };
 
 const SUGGESTED_QUESTIONS = [
-	"Bạn đang làm dự án gì hiện tại?",
-	"Kể về dự án thú vị nhất đi!",
-	"Bạn có chứng chỉ AWS à?",
-	"Làm sao để liên hệ với bạn?",
+	"What projects are you working on?",
+	"Tell me about your most interesting project!",
+	"Do you have AWS certification?",
+	"How can I contact you?",
 ];
+
+const WELCOME_MESSAGE =
+	"Hi there! I'm Hung 👋\n\nLooking to learn more about my portfolio? Feel free to ask me anything - I'm happy to share about my experience, projects, or anything you're curious about! 😊";
+
+const ERROR_MESSAGES = {
+	default: "Sorry, I couldn't answer that question.",
+	generic:
+		"Sorry, something went wrong while processing your request. Please try again later.",
+};
 
 const AIAssistant = () => {
 	const [isOpen, setIsOpen] = useState(false);
@@ -45,36 +112,124 @@ const AIAssistant = () => {
 		{
 			id: "1",
 			role: "assistant",
-			content:
-				"Chào bạn! Mình là Hưng đây 👋\n\nBạn đang tìm hiểu về portfolio của mình à? Cứ hỏi thoải mái nha, mình sẵn sàng chia sẻ về kinh nghiệm, dự án, hoặc bất cứ thứ gì bạn quan tâm! 😊",
+			content: WELCOME_MESSAGE,
 			timestamp: new Date(),
 		},
 	]);
 	const [input, setInput] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
+	const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
+		null
+	);
+	const streamingContentRef = useRef<string | null>("");
 	const [userId] = useState<string>(() => getOrCreateUserId());
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 
-	const scrollToBottom = () => {
+	const scrollToBottom = useCallback(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	};
+	}, []);
 
 	useEffect(() => {
 		scrollToBottom();
-	}, [messages]);
+	}, [messages, scrollToBottom]);
 
 	useEffect(() => {
 		if (isOpen && inputRef.current) {
-			// Delay focus để tránh zoom popup khi bàn phím ảo mở trên mobile
 			const timeoutId = setTimeout(() => {
 				inputRef.current?.focus({ preventScroll: true });
-			}, 400); // Đợi animation hoàn thành
+			}, 400);
 			return () => clearTimeout(timeoutId);
 		}
 	}, [isOpen]);
 
-	const handleSend = async () => {
+	const sendMessage = useCallback(
+		async (prompt: string) => {
+			const messageId = (Date.now() + 1).toString();
+			const messageTimestamp = new Date();
+
+			setStreamingMessageId(messageId);
+			streamingContentRef.current = "";
+
+			const assistantMessage: Message = {
+				id: messageId,
+				role: "assistant",
+				content: "",
+				timestamp: messageTimestamp,
+			};
+			setMessages((prev) => [...prev, assistantMessage]);
+
+			try {
+				const response = await fetch("/api/ai", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ prompt, userId }),
+				});
+
+				if (!response.ok) {
+					const data = await response.json();
+					throw new Error(data.error || "Failed to get AI response");
+				}
+
+				const reader = response.body?.getReader();
+				const decoder = new TextDecoder();
+
+				if (!reader) throw new Error("No response body");
+
+				let fullContent = "";
+
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+
+					const chunk = decoder.decode(value);
+					const lines = chunk.split("\n");
+
+					for (const line of lines) {
+						if (line.startsWith("data: ")) {
+							const data = line.slice(6);
+							if (data === "[DONE]") break;
+							try {
+								const parsed = JSON.parse(data);
+								if (parsed.text) {
+									fullContent += parsed.text;
+									streamingContentRef.current = fullContent;
+								}
+							} catch {
+								/* ignore parse errors */
+							}
+						}
+					}
+				}
+
+				const finalContent = fullContent || ERROR_MESSAGES.default;
+				setMessages((prev) =>
+					prev.map((msg) =>
+						msg.id === messageId ? { ...msg, content: finalContent } : msg
+					)
+				);
+				setStreamingMessageId(null);
+				streamingContentRef.current = "";
+			} catch (error) {
+				console.error("Error calling AI API:", error);
+				const errorContent =
+					error instanceof Error && error.message.includes("limit")
+						? error.message
+						: ERROR_MESSAGES.generic;
+
+				setMessages((prev) =>
+					prev.map((msg) =>
+						msg.id === messageId ? { ...msg, content: errorContent } : msg
+					)
+				);
+				setStreamingMessageId(null);
+				streamingContentRef.current = "";
+			}
+		},
+		[userId]
+	);
+
+	const handleSend = useCallback(async () => {
 		if (!input.trim() || isLoading) return;
 
 		const userPrompt = input.trim();
@@ -89,119 +244,65 @@ const AIAssistant = () => {
 		setInput("");
 		setIsLoading(true);
 
-		try {
-			// Gọi API thực tế
-			const response = await fetch("/api/ai", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					prompt: userPrompt,
-					userId: userId,
-				}),
-			});
+		await sendMessage(userPrompt);
+		setIsLoading(false);
+	}, [input, isLoading, sendMessage]);
 
-			const data = await response.json();
-
-			if (!response.ok) {
-				throw new Error(data.error || "Failed to get AI response");
+	const handleKeyPress = useCallback(
+		(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+			if (e.key === "Enter" && !e.shiftKey) {
+				e.preventDefault();
+				handleSend();
 			}
+		},
+		[handleSend]
+	);
 
-			const assistantMessage: Message = {
-				id: (Date.now() + 1).toString(),
-				role: "assistant",
-				content: data.response || "Xin lỗi, tôi không thể trả lời câu hỏi này.",
+	const handleSuggestionClick = useCallback(
+		async (question: string) => {
+			if (isLoading) return;
+
+			const userMessage: Message = {
+				id: Date.now().toString(),
+				role: "user",
+				content: question,
 				timestamp: new Date(),
 			};
 
-			setMessages((prev) => [...prev, assistantMessage]);
-		} catch (error) {
-			console.error("Error calling AI API:", error);
-			const errorMessage: Message = {
-				id: (Date.now() + 1).toString(),
-				role: "assistant",
-				content:
-					"Xin lỗi, đã có lỗi xảy ra khi xử lý yêu cầu của bạn. Vui lòng thử lại sau.",
-				timestamp: new Date(),
-			};
-			setMessages((prev) => [...prev, errorMessage]);
-		} finally {
+			setMessages((prev) => [...prev, userMessage]);
+			setIsLoading(true);
+
+			await sendMessage(question);
 			setIsLoading(false);
-		}
-	};
+		},
+		[isLoading, sendMessage]
+	);
 
-	const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-		if (e.key === "Enter" && !e.shiftKey) {
-			e.preventDefault();
-			handleSend();
-		}
-	};
+	const handleInputChange = useCallback(
+		(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+			setInput(e.target.value);
+		},
+		[]
+	);
 
-	const handleSuggestionClick = async (question: string) => {
-		if (isLoading) return;
+	const handleInputResize = useCallback(
+		(e: React.FormEvent<HTMLTextAreaElement>) => {
+			const target = e.target as HTMLTextAreaElement;
+			target.style.height = "auto";
+			target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
+		},
+		[]
+	);
 
-		const now = new Date().getTime();
-		const userMessage: Message = {
-			id: now.toString(),
-			role: "user",
-			content: question,
-			timestamp: new Date(now),
-		};
+	const toggleOpen = useCallback(() => setIsOpen((prev) => !prev), []);
+	const closeChat = useCallback(() => setIsOpen(false), []);
 
-		setMessages((prev) => [...prev, userMessage]);
-		setIsLoading(true);
-
-		try {
-			// Gọi API thực tế
-			const response = await fetch("/api/ai", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					prompt: question,
-					userId: userId,
-				}),
-			});
-
-			const data = await response.json();
-
-			if (!response.ok) {
-				throw new Error(data.error || "Failed to get AI response");
-			}
-
-			const assistantMessage: Message = {
-				id: (now + 1).toString(),
-				role: "assistant",
-				content: data.response || "Xin lỗi, tôi không thể trả lời câu hỏi này.",
-				timestamp: new Date(now + 1),
-			};
-
-			setMessages((prev) => [...prev, assistantMessage]);
-		} catch (error) {
-			console.error("Error calling AI API:", error);
-			const errorMessage: Message = {
-				id: (now + 1).toString(),
-				role: "assistant",
-				content:
-					"Xin lỗi, đã có lỗi xảy ra khi xử lý yêu cầu của bạn. Vui lòng thử lại sau.",
-				timestamp: new Date(now + 1),
-			};
-			setMessages((prev) => [...prev, errorMessage]);
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
-	// Show suggestions when there are few messages (only welcome + maybe 1-2 exchanges)
 	const showSuggestions = messages.length <= 3 && !isLoading;
 
 	return (
 		<>
-			{/* Floating Button */}
 			<motion.button
-				onClick={() => setIsOpen(!isOpen)}
+				onClick={toggleOpen}
 				className={cn(
 					"fixed bottom-6 right-6 sm:bottom-10 sm:right-10 z-50",
 					"h-14 w-14 rounded-full",
@@ -213,14 +314,8 @@ const AIAssistant = () => {
 				)}
 				whileHover={{ scale: 1.1 }}
 				whileTap={{ scale: 0.95 }}
-				animate={{
-					rotate: isOpen ? 180 : 0,
-				}}
-				transition={{
-					type: "spring",
-					stiffness: 300,
-					damping: 20,
-				}}
+				animate={{ rotate: isOpen ? 180 : 0 }}
+				transition={{ type: "spring", stiffness: 300, damping: 20 }}
 				aria-label="Toggle AI Assistant"
 			>
 				<AnimatePresence mode="wait">
@@ -248,41 +343,32 @@ const AIAssistant = () => {
 				</AnimatePresence>
 			</motion.button>
 
-			{/* Chat Window */}
 			<AnimatePresence>
 				{isOpen && (
 					<>
-						{/* Backdrop */}
 						<motion.div
 							initial={{ opacity: 0 }}
 							animate={{ opacity: 1 }}
 							exit={{ opacity: 0 }}
 							transition={{ duration: 0.2 }}
 							className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm z-40"
-							onClick={() => setIsOpen(false)}
+							onClick={closeChat}
 						/>
 
-						{/* Chat Container */}
 						<motion.div
 							initial={{ opacity: 0, scale: 0.8, y: 20 }}
 							animate={{ opacity: 1, scale: 1, y: 0 }}
 							exit={{ opacity: 0, scale: 0.8, y: 20 }}
-							transition={{
-								type: "spring",
-								stiffness: 300,
-								damping: 30,
-							}}
+							transition={{ type: "spring", stiffness: 300, damping: 30 }}
 							className={cn(
 								"fixed bottom-28 right-6 sm:bottom-32 sm:right-10 z-50",
 								"w-[calc(100vw-3rem)] sm:w-full max-w-lg",
 								"h-[calc(100vh-9rem)] sm:h-[700px] sm:max-h-[85vh]",
 								"flex flex-col",
 								"bg-card border border-border rounded-lg",
-								"shadow-2xl",
-								"overflow-hidden"
+								"shadow-2xl overflow-hidden"
 							)}
 						>
-							{/* Header */}
 							<div
 								className={cn(
 									"flex items-center justify-between",
@@ -300,14 +386,13 @@ const AIAssistant = () => {
 								<Button
 									variant="ghost"
 									size="icon"
-									onClick={() => setIsOpen(false)}
+									onClick={closeChat}
 									className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
 								>
 									<X className="h-4 w-4" />
 								</Button>
 							</div>
 
-							{/* Messages Area */}
 							<div
 								className={cn(
 									"flex-1 overflow-y-auto",
@@ -330,8 +415,7 @@ const AIAssistant = () => {
 										{message.role === "assistant" && (
 											<div
 												className={cn(
-													"shrink-0",
-													"h-8 w-8 rounded-full",
+													"shrink-0 h-8 w-8 rounded-full",
 													"bg-primary/10 text-primary",
 													"flex items-center justify-center"
 												)}
@@ -341,15 +425,21 @@ const AIAssistant = () => {
 										)}
 										<div
 											className={cn(
-												"max-w-[80%] rounded-lg px-4 py-2",
-												"text-sm",
+												"max-w-[80%] rounded-lg px-4 py-2 text-sm",
 												message.role === "user"
 													? "bg-primary text-primary-foreground"
 													: "bg-muted text-muted-foreground"
 											)}
 										>
 											<p className="whitespace-pre-wrap wrap-break-word">
-												{message.content}
+												{message.id === streamingMessageId ? (
+													<StreamingText
+														streamingRef={streamingContentRef}
+														onUpdate={scrollToBottom}
+													/>
+												) : (
+													message.content
+												)}
 											</p>
 											<span
 												className={cn(
@@ -359,7 +449,7 @@ const AIAssistant = () => {
 														: "text-muted-foreground/70"
 												)}
 											>
-												{message.timestamp.toLocaleTimeString("vi-VN", {
+												{message.timestamp.toLocaleTimeString("en-US", {
 													hour: "2-digit",
 													minute: "2-digit",
 												})}
@@ -368,8 +458,7 @@ const AIAssistant = () => {
 										{message.role === "user" && (
 											<div
 												className={cn(
-													"shrink-0",
-													"h-8 w-8 rounded-full",
+													"shrink-0 h-8 w-8 rounded-full",
 													"bg-primary/10 text-primary",
 													"flex items-center justify-center"
 												)}
@@ -387,8 +476,7 @@ const AIAssistant = () => {
 									>
 										<div
 											className={cn(
-												"shrink-0",
-												"h-8 w-8 rounded-full",
+												"shrink-0 h-8 w-8 rounded-full",
 												"bg-primary/10 text-primary",
 												"flex items-center justify-center"
 											)}
@@ -397,33 +485,18 @@ const AIAssistant = () => {
 										</div>
 										<div className="bg-muted text-muted-foreground rounded-lg px-4 py-2">
 											<div className="flex gap-1">
-												<motion.div
-													className="h-2 w-2 bg-muted-foreground rounded-full"
-													animate={{ y: [0, -8, 0] }}
-													transition={{
-														duration: 0.6,
-														repeat: Infinity,
-														delay: 0,
-													}}
-												/>
-												<motion.div
-													className="h-2 w-2 bg-muted-foreground rounded-full"
-													animate={{ y: [0, -8, 0] }}
-													transition={{
-														duration: 0.6,
-														repeat: Infinity,
-														delay: 0.2,
-													}}
-												/>
-												<motion.div
-													className="h-2 w-2 bg-muted-foreground rounded-full"
-													animate={{ y: [0, -8, 0] }}
-													transition={{
-														duration: 0.6,
-														repeat: Infinity,
-														delay: 0.4,
-													}}
-												/>
+												{[0, 0.2, 0.4].map((delay, i) => (
+													<motion.div
+														key={i}
+														className="h-2 w-2 bg-muted-foreground rounded-full"
+														animate={{ y: [0, -8, 0] }}
+														transition={{
+															duration: 0.6,
+															repeat: Infinity,
+															delay,
+														}}
+													/>
+												))}
 											</div>
 										</div>
 									</motion.div>
@@ -431,7 +504,6 @@ const AIAssistant = () => {
 								<div ref={messagesEndRef} />
 							</div>
 
-							{/* Suggested Questions */}
 							{showSuggestions && (
 								<motion.div
 									initial={{ opacity: 0, y: 10 }}
@@ -443,7 +515,7 @@ const AIAssistant = () => {
 									)}
 								>
 									<span className="text-xs text-muted-foreground w-full mb-1">
-										Câu hỏi gợi ý:
+										Suggested questions:
 									</span>
 									{SUGGESTED_QUESTIONS.map((question, index) => (
 										<motion.button
@@ -455,8 +527,7 @@ const AIAssistant = () => {
 												"px-3 py-1.5 rounded-full text-xs",
 												"bg-muted hover:bg-muted/80 text-muted-foreground",
 												"border border-border/50",
-												"transition-colors duration-200",
-												"cursor-pointer"
+												"transition-colors duration-200 cursor-pointer"
 											)}
 										>
 											{question}
@@ -465,15 +536,14 @@ const AIAssistant = () => {
 								</motion.div>
 							)}
 
-							{/* Input Area */}
 							<div className={cn("border-t border-border p-4", "bg-card")}>
 								<div className="flex gap-2 items-end">
 									<textarea
 										ref={inputRef}
 										value={input}
-										onChange={(e) => setInput(e.target.value)}
+										onChange={handleInputChange}
 										onKeyDown={handleKeyPress}
-										placeholder="Nhập câu hỏi của bạn..."
+										placeholder="Type your question..."
 										rows={1}
 										className={cn(
 											"flex-1 resize-none",
@@ -484,19 +554,8 @@ const AIAssistant = () => {
 											"placeholder:text-muted-foreground",
 											"max-h-32 overflow-y-auto"
 										)}
-										style={{
-											minHeight: "40px",
-											maxHeight: "128px",
-											fontSize: "16px", // Ngăn iOS zoom khi focus input
-										}}
-										onInput={(e) => {
-											const target = e.target as HTMLTextAreaElement;
-											target.style.height = "auto";
-											target.style.height = `${Math.min(
-												target.scrollHeight,
-												128
-											)}px`;
-										}}
+										style={{ minHeight: "40px", maxHeight: "128px", fontSize: "16px" }}
+										onInput={handleInputResize}
 									/>
 									<Button
 										onClick={handleSend}
@@ -508,7 +567,7 @@ const AIAssistant = () => {
 									</Button>
 								</div>
 								<p className="text-xs text-muted-foreground mt-2 text-center">
-									Nhấn Enter để gửi, Shift + Enter để xuống dòng
+									Press Enter to send, Shift + Enter for new line
 								</p>
 							</div>
 						</motion.div>
