@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageCircleQuestionMark, X, Send, Bot, User } from "lucide-react";
-import React, { useState, useRef, useEffect, useCallback, memo } from "react";
+import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,47 +15,61 @@ interface Message {
 
 interface StreamingTextProps {
 	streamingRef: React.RefObject<string | null>;
-	onUpdate?: () => void;
 }
 
 interface TypingTextProps {
 	text: string;
 	onComplete?: () => void;
-	onUpdate?: () => void;
 }
 
-const TypingText = memo(({ text, onComplete, onUpdate }: TypingTextProps) => {
+// Optimized TypingText component with proper cleanup
+const TypingText = memo(({ text, onComplete }: TypingTextProps) => {
 	const [displayText, setDisplayText] = useState("");
 	const currentIndexRef = useRef(0);
+	const timerRef = useRef<NodeJS.Timeout | null>(null);
 
 	useEffect(() => {
-		if (!text || currentIndexRef.current >= text.length) {
-			if (currentIndexRef.current >= text.length && text) {
-				onComplete?.();
-			}
-			return;
-		}
+		if (!text) return;
 
-		const timer = setTimeout(() => {
-			// Add 1-3 characters at a time for natural typing effect
+		currentIndexRef.current = 0;
+		let mounted = true;
+
+		const typeCharacters = () => {
+			if (!mounted || currentIndexRef.current >= text.length) {
+				if (mounted && currentIndexRef.current >= text.length) {
+					onComplete?.();
+				}
+				return;
+			}
+
 			const charsToAdd = Math.min(
 				Math.floor(Math.random() * 3) + 1,
 				text.length - currentIndexRef.current
 			);
 			currentIndexRef.current += charsToAdd;
-			setDisplayText(text.slice(0, currentIndexRef.current));
-			onUpdate?.();
-		}, 20); // 20ms between updates for smooth ChatGPT-like effect
 
-		return () => clearTimeout(timer);
-	}, [displayText, text, onComplete, onUpdate]);
+			setDisplayText(text.slice(0, currentIndexRef.current));
+			timerRef.current = setTimeout(typeCharacters, 20);
+		};
+
+		// Start typing on next tick to avoid sync setState
+		timerRef.current = setTimeout(typeCharacters, 0);
+
+		return () => {
+			mounted = false;
+			if (timerRef.current) {
+				clearTimeout(timerRef.current);
+			}
+		};
+	}, [text, onComplete]);
 
 	return <>{displayText}</>;
 });
 
 TypingText.displayName = "TypingText";
 
-const StreamingText = memo(({ streamingRef, onUpdate }: StreamingTextProps) => {
+// Optimized StreamingText component
+const StreamingText = memo(({ streamingRef }: StreamingTextProps) => {
 	const [displayText, setDisplayText] = useState("");
 	const animationRef = useRef<number | null>(null);
 	const lastUpdateRef = useRef<number>(0);
@@ -63,7 +77,6 @@ const StreamingText = memo(({ streamingRef, onUpdate }: StreamingTextProps) => {
 
 	useEffect(() => {
 		const animate = (timestamp: number) => {
-			// Control speed: 30ms between updates for smooth typing effect (like ChatGPT)
 			if (timestamp - lastUpdateRef.current < 30) {
 				animationRef.current = requestAnimationFrame(animate);
 				return;
@@ -73,14 +86,15 @@ const StreamingText = memo(({ streamingRef, onUpdate }: StreamingTextProps) => {
 			const targetText = streamingRef.current || "";
 
 			if (currentIndexRef.current < targetText.length) {
-				// Add 1-2 characters at a time for natural typing effect
 				const charsToAdd = Math.min(
 					Math.random() > 0.5 ? 2 : 1,
 					targetText.length - currentIndexRef.current
 				);
 				currentIndexRef.current += charsToAdd;
 				setDisplayText(targetText.slice(0, currentIndexRef.current));
-				onUpdate?.();
+			} else if (targetText !== displayText && targetText.length <= currentIndexRef.current) {
+				setDisplayText(targetText);
+				currentIndexRef.current = targetText.length;
 			}
 
 			animationRef.current = requestAnimationFrame(animate);
@@ -93,19 +107,6 @@ const StreamingText = memo(({ streamingRef, onUpdate }: StreamingTextProps) => {
 				cancelAnimationFrame(animationRef.current);
 			}
 		};
-	}, [streamingRef, onUpdate]);
-
-	useEffect(() => {
-		const checkSync = () => {
-			const target = streamingRef.current || "";
-			if (target !== displayText && target.length <= currentIndexRef.current) {
-				setDisplayText(target);
-				currentIndexRef.current = target.length;
-			}
-		};
-
-		const interval = setInterval(checkSync, 100);
-		return () => clearInterval(interval);
 	}, [streamingRef, displayText]);
 
 	return <>{displayText}</>;
@@ -134,7 +135,7 @@ const SUGGESTED_QUESTIONS = [
 	"Tell me about your most interesting project!",
 	"Do you have AWS certification?",
 	"How can I contact you?",
-];
+] as const;
 
 const WELCOME_MESSAGE =
 	"Hi there! I'm Hung 👋\n\nLooking to learn more about my portfolio? Feel free to ask me anything - I'm happy to share about my experience, projects, or anything you're curious about! 😊";
@@ -143,7 +144,94 @@ const ERROR_MESSAGES = {
 	default: "Sorry, I couldn't answer that question.",
 	generic:
 		"Sorry, something went wrong while processing your request. Please try again later.",
-};
+} as const;
+
+// Memoized Message Component
+const MessageBubble = memo(({
+	message,
+	isStreaming,
+	isTyping,
+	streamingContentRef,
+	onTypingComplete,
+}: {
+	message: Message;
+	isStreaming: boolean;
+	isTyping: boolean;
+	streamingContentRef: React.RefObject<string | null>;
+	onTypingComplete: () => void;
+}) => {
+	return (
+		<motion.div
+			initial={{ opacity: 0, y: 10 }}
+			animate={{ opacity: 1, y: 0 }}
+			transition={{ duration: 0.3 }}
+			className={cn(
+				"flex gap-3",
+				message.role === "user" ? "justify-end" : "justify-start"
+			)}
+		>
+			{message.role === "assistant" && (
+				<div
+					className={cn(
+						"shrink-0 h-8 w-8 rounded-full",
+						"bg-primary/10 text-primary",
+						"flex items-center justify-center"
+					)}
+				>
+					<Bot className="h-4 w-4" />
+				</div>
+			)}
+			<div
+				className={cn(
+					"max-w-[80%] rounded-lg px-4 py-2 text-sm",
+					message.role === "user"
+						? "bg-primary text-primary-foreground"
+						: "bg-muted text-muted-foreground"
+				)}
+			>
+				<p className="whitespace-pre-wrap wrap-break-word">
+					{isStreaming ? (
+						<StreamingText streamingRef={streamingContentRef} />
+					) : isTyping && message.role === "assistant" ? (
+						<TypingText
+							key={message.id}
+							text={message.content}
+							onComplete={onTypingComplete}
+						/>
+					) : (
+						message.content
+					)}
+				</p>
+				<span
+					className={cn(
+						"text-xs mt-1 block",
+						message.role === "user"
+							? "text-primary-foreground/70"
+							: "text-muted-foreground/70"
+					)}
+				>
+					{message.timestamp.toLocaleTimeString("en-US", {
+						hour: "2-digit",
+						minute: "2-digit",
+					})}
+				</span>
+			</div>
+			{message.role === "user" && (
+				<div
+					className={cn(
+						"shrink-0 h-8 w-8 rounded-full",
+						"bg-primary/10 text-primary",
+						"flex items-center justify-center"
+					)}
+				>
+					<User className="h-4 w-4" />
+				</div>
+			)}
+		</motion.div>
+	);
+});
+
+MessageBubble.displayName = "MessageBubble";
 
 const AIAssistant = () => {
 	const [isOpen, setIsOpen] = useState(false);
@@ -157,23 +245,66 @@ const AIAssistant = () => {
 	]);
 	const [input, setInput] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
-	const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
-		null
-	);
-	const streamingContentRef = useRef<string | null>("");
+	const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
 	const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
+
+	const streamingContentRef = useRef<string | null>("");
 	const [userId] = useState<string>(() => getOrCreateUserId());
 	const messagesEndRef = useRef<HTMLDivElement>(null);
+	const messagesContainerRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
+	const shouldAutoScrollRef = useRef(true);
+	const isSubmittingRef = useRef(false);
 
 	const scrollToBottom = useCallback(() => {
-		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+		if (!shouldAutoScrollRef.current || !messagesEndRef.current) return;
+		messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+	}, []);
+
+	// Scroll detection - memoized handler
+	const handleScroll = useCallback(() => {
+		const container = messagesContainerRef.current;
+		if (!container) return;
+
+		const { scrollTop, scrollHeight, clientHeight } = container;
+		const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+		shouldAutoScrollRef.current = distanceFromBottom < 50;
 	}, []);
 
 	useEffect(() => {
-		scrollToBottom();
-	}, [messages, scrollToBottom]);
+		const container = messagesContainerRef.current;
+		if (!container) return;
 
+		container.addEventListener("scroll", handleScroll, { passive: true });
+		return () => container.removeEventListener("scroll", handleScroll);
+	}, [handleScroll]);
+
+	// Optimized MutationObserver - only observe childList changes
+	useEffect(() => {
+		const container = messagesContainerRef.current;
+		if (!container) return;
+
+		const observer = new MutationObserver(() => {
+			if (shouldAutoScrollRef.current) {
+				scrollToBottom();
+			}
+		});
+
+		observer.observe(container, {
+			childList: true,
+			subtree: true,
+		});
+
+		return () => observer.disconnect();
+	}, [scrollToBottom]);
+
+	// Scroll on new messages
+	useEffect(() => {
+		shouldAutoScrollRef.current = true;
+		scrollToBottom();
+	}, [messages.length, scrollToBottom]);
+
+	// Focus input when opened
 	useEffect(() => {
 		if (isOpen && inputRef.current) {
 			const timeoutId = setTimeout(() => {
@@ -271,7 +402,7 @@ const AIAssistant = () => {
 		[userId]
 	);
 
-	const handleSend = useCallback(async () => {
+	const handleSend = useCallback(() => {
 		if (!input.trim() || isLoading) return;
 
 		const userPrompt = input.trim();
@@ -282,12 +413,27 @@ const AIAssistant = () => {
 			timestamp: new Date(),
 		};
 
-		setMessages((prev) => [...prev, userMessage]);
+		// Set flag to prevent onChange from interfering
+		isSubmittingRef.current = true;
+
+		// Clear input immediately and reset textarea height
 		setInput("");
+		if (inputRef.current) {
+			inputRef.current.value = "";
+			inputRef.current.style.height = "auto";
+		}
+
+		// Reset flag after state update
+		setTimeout(() => {
+			isSubmittingRef.current = false;
+		}, 0);
+
+		setMessages((prev) => [...prev, userMessage]);
 		setIsLoading(true);
 
-		await sendMessage(userPrompt);
-		setIsLoading(false);
+		sendMessage(userPrompt).finally(() => {
+			setIsLoading(false);
+		});
 	}, [input, isLoading, sendMessage]);
 
 	const handleKeyPress = useCallback(
@@ -301,7 +447,7 @@ const AIAssistant = () => {
 	);
 
 	const handleSuggestionClick = useCallback(
-		async (question: string) => {
+		(question: string) => {
 			if (isLoading) return;
 
 			const userMessage: Message = {
@@ -314,22 +460,23 @@ const AIAssistant = () => {
 			setMessages((prev) => [...prev, userMessage]);
 			setIsLoading(true);
 
-			await sendMessage(question);
-			setIsLoading(false);
+			sendMessage(question).finally(() => {
+				setIsLoading(false);
+			});
 		},
 		[isLoading, sendMessage]
 	);
 
 	const handleInputChange = useCallback(
 		(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-			setInput(e.target.value);
-		},
-		[]
-	);
+			// Ignore onChange events while submitting
+			if (isSubmittingRef.current) return;
 
-	const handleInputResize = useCallback(
-		(e: React.FormEvent<HTMLTextAreaElement>) => {
-			const target = e.target as HTMLTextAreaElement;
+			const newValue = e.target.value;
+			setInput(newValue);
+
+			// Handle resize inline to avoid stale closure issues
+			const target = e.target;
 			target.style.height = "auto";
 			target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
 		},
@@ -338,8 +485,12 @@ const AIAssistant = () => {
 
 	const toggleOpen = useCallback(() => setIsOpen((prev) => !prev), []);
 	const closeChat = useCallback(() => setIsOpen(false), []);
+	const handleTypingComplete = useCallback(() => setTypingMessageId(null), []);
 
-	const showSuggestions = messages.length <= 3 && !isLoading;
+	const showSuggestions = useMemo(
+		() => messages.length <= 3 && !isLoading,
+		[messages.length, isLoading]
+	);
 
 	return (
 		<>
@@ -436,98 +587,36 @@ const AIAssistant = () => {
 							</div>
 
 							<div
+								ref={messagesContainerRef}
 								className={cn(
-									"flex-1 overflow-y-auto",
+									"flex-1 overflow-y-auto overflow-x-hidden",
 									"px-4 py-4",
 									"space-y-4",
 									"scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
 								)}
+								style={{ overscrollBehavior: "contain" }}
 							>
 								{messages.map((message) => {
 									const isStreaming = message.id === streamingMessageId;
 									const isTyping = message.id === typingMessageId;
 									const hasContent = message.content || streamingContentRef.current;
 
-									// Don't render streaming message if it has no content yet
 									if (isStreaming && !hasContent) {
 										return null;
 									}
 
 									return (
-										<motion.div
+										<MessageBubble
 											key={message.id}
-											initial={{ opacity: 0, y: 10 }}
-											animate={{ opacity: 1, y: 0 }}
-											transition={{ duration: 0.3 }}
-											className={cn(
-												"flex gap-3",
-												message.role === "user" ? "justify-end" : "justify-start"
-											)}
-										>
-											{message.role === "assistant" && (
-												<div
-													className={cn(
-														"shrink-0 h-8 w-8 rounded-full",
-														"bg-primary/10 text-primary",
-														"flex items-center justify-center"
-													)}
-												>
-													<Bot className="h-4 w-4" />
-												</div>
-											)}
-											<div
-												className={cn(
-													"max-w-[80%] rounded-lg px-4 py-2 text-sm",
-													message.role === "user"
-														? "bg-primary text-primary-foreground"
-														: "bg-muted text-muted-foreground"
-												)}
-											>
-												<p className="whitespace-pre-wrap wrap-break-word">
-													{isStreaming ? (
-														<StreamingText
-															streamingRef={streamingContentRef}
-															onUpdate={scrollToBottom}
-														/>
-													) : isTyping && message.role === "assistant" ? (
-														<TypingText
-															key={message.id}
-															text={message.content}
-															onUpdate={scrollToBottom}
-															onComplete={() => setTypingMessageId(null)}
-														/>
-													) : (
-														message.content
-													)}
-												</p>
-												<span
-													className={cn(
-														"text-xs mt-1 block",
-														message.role === "user"
-															? "text-primary-foreground/70"
-															: "text-muted-foreground/70"
-													)}
-												>
-													{message.timestamp.toLocaleTimeString("en-US", {
-														hour: "2-digit",
-														minute: "2-digit",
-													})}
-												</span>
-											</div>
-											{message.role === "user" && (
-												<div
-													className={cn(
-														"shrink-0 h-8 w-8 rounded-full",
-														"bg-primary/10 text-primary",
-														"flex items-center justify-center"
-													)}
-												>
-													<User className="h-4 w-4" />
-												</div>
-											)}
-										</motion.div>
+											message={message}
+											isStreaming={isStreaming}
+											isTyping={isTyping}
+											streamingContentRef={streamingContentRef}
+											onTypingComplete={handleTypingComplete}
+										/>
 									);
 								})}
+
 								{isLoading && (
 									<motion.div
 										initial={{ opacity: 0 }}
@@ -561,40 +650,41 @@ const AIAssistant = () => {
 										</div>
 									</motion.div>
 								)}
+
+								{showSuggestions && (
+									<motion.div
+										initial={{ opacity: 0, y: 10 }}
+										animate={{ opacity: 1, y: 0 }}
+										transition={{ duration: 0.3, delay: 0.2 }}
+										className={cn(
+											"mt-4 p-4 rounded-lg bg-muted/30 border border-border/50",
+											"flex flex-wrap gap-2"
+										)}
+									>
+										<span className="text-xs text-muted-foreground w-full mb-1 font-medium">
+											Suggested questions:
+										</span>
+										{SUGGESTED_QUESTIONS.map((question, index) => (
+											<motion.button
+												key={index}
+												onClick={() => handleSuggestionClick(question)}
+												whileHover={{ scale: 1.05 }}
+												whileTap={{ scale: 0.95 }}
+												className={cn(
+													"px-3 py-1.5 rounded-full text-xs",
+													"bg-background hover:bg-muted text-muted-foreground hover:text-foreground",
+													"border border-border/50",
+													"transition-colors duration-200 cursor-pointer"
+												)}
+											>
+												{question}
+											</motion.button>
+										))}
+									</motion.div>
+								)}
+
 								<div ref={messagesEndRef} />
 							</div>
-
-							{showSuggestions && (
-								<motion.div
-									initial={{ opacity: 0, y: 10 }}
-									animate={{ opacity: 1, y: 0 }}
-									transition={{ duration: 0.3, delay: 0.2 }}
-									className={cn(
-										"px-4 pb-2 border-t border-border bg-card/50",
-										"flex flex-wrap gap-2"
-									)}
-								>
-									<span className="text-xs text-muted-foreground w-full mb-1">
-										Suggested questions:
-									</span>
-									{SUGGESTED_QUESTIONS.map((question, index) => (
-										<motion.button
-											key={index}
-											onClick={() => handleSuggestionClick(question)}
-											whileHover={{ scale: 1.05 }}
-											whileTap={{ scale: 0.95 }}
-											className={cn(
-												"px-3 py-1.5 rounded-full text-xs",
-												"bg-muted hover:bg-muted/80 text-muted-foreground",
-												"border border-border/50",
-												"transition-colors duration-200 cursor-pointer"
-											)}
-										>
-											{question}
-										</motion.button>
-									))}
-								</motion.div>
-							)}
 
 							<div className={cn("border-t border-border p-4", "bg-card")}>
 								<div className="flex gap-2 items-end">
@@ -609,13 +699,12 @@ const AIAssistant = () => {
 											"flex-1 resize-none",
 											"px-3 py-2",
 											"bg-background border border-input rounded-md",
-											"text-sm",
+											"text-base",
 											"focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0",
 											"placeholder:text-muted-foreground",
 											"max-h-32 overflow-y-auto"
 										)}
-										style={{ minHeight: "40px", maxHeight: "128px", fontSize: "16px" }}
-										onInput={handleInputResize}
+										style={{ minHeight: "40px", maxHeight: "128px" }}
 									/>
 									<Button
 										onClick={handleSend}
