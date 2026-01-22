@@ -5,6 +5,7 @@ import ProjectCard from "@/components/Projects/ProjectCard";
 import { projects } from "@/constants/projects";
 import { cn } from "@/lib/utils";
 import { DotPattern } from "@/components/ui/dot-pattern";
+import { motion, AnimatePresence } from "motion/react";
 
 export default function ProjectsPage() {
   const [filter, setFilter] = useState<"all" | "featured" | "completed" | "in-progress">("all");
@@ -51,7 +52,12 @@ export default function ProjectsPage() {
       {/* Content */}
       <div className="relative z-10 mx-auto max-w-7xl px-4 md:px-8">
         {/* Header */}
-        <div className="mb-12 text-center">
+        <motion.div
+          className="mb-12 text-center"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
           <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
             My Projects
           </h1>
@@ -60,12 +66,17 @@ export default function ProjectsPage() {
             experience in full-stack development, from e-commerce platforms to
             social networks.
           </p>
-        </div>
+        </motion.div>
 
         {/* Filter Buttons */}
-        <div className="mb-8 flex flex-wrap justify-center gap-3">
-          {filterButtons.map((btn) => (
-            <button
+        <motion.div
+          className="mb-8 flex flex-wrap justify-center gap-3"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          {filterButtons.map((btn, index) => (
+            <motion.button
               key={btn.value}
               onClick={() => setFilter(btn.value)}
               className={cn(
@@ -74,30 +85,62 @@ export default function ProjectsPage() {
                   ? "bg-primary text-primary-foreground shadow-md"
                   : "bg-secondary/60 text-secondary-foreground hover:bg-secondary/80"
               )}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, delay: 0.3 + index * 0.1 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               {btn.label}
               <span className="ml-2 rounded-full bg-background/20 px-2 py-0.5 text-xs">
                 {btn.count}
               </span>
-            </button>
+            </motion.button>
           ))}
-        </div>
+        </motion.div>
 
         {/* Projects Grid */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredProjects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
-          ))}
-        </div>
+        <motion.div
+          className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr"
+          layout
+        >
+          <AnimatePresence mode="popLayout">
+            {filteredProjects.map((project, index) => (
+              <motion.div
+                key={project.id}
+                layout
+                className="h-full"
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                transition={{
+                  duration: 0.4,
+                  delay: index * 0.1,
+                  layout: { duration: 0.3 }
+                }}
+              >
+                <ProjectCard project={project} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Empty State */}
-        {filteredProjects.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-lg text-muted-foreground">
-              No projects found for this filter.
-            </p>
-          </div>
-        )}
+        <AnimatePresence>
+          {filteredProjects.length === 0 && (
+            <motion.div
+              className="flex flex-col items-center justify-center py-20 text-center"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <p className="text-lg text-muted-foreground">
+                No projects found for this filter.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

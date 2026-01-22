@@ -1,13 +1,33 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "About",
+  title: "About Me",
   description:
-    "Learn more about Hung Nguyen - a passionate full-stack developer with 4 years of experience building scalable web applications with modern technologies.",
+    "Learn about Hung Nguyen - Full-stack Developer from Vietnam with 4+ years of experience. Bachelor's degree in IT, passionate about clean code, performance optimization, and modern web technologies.",
+  keywords: [
+    "About Hung Nguyen",
+    "Full-stack Developer Vietnam",
+    "Software Engineer Bio",
+    "Web Developer Background",
+    "Electric Power University",
+    "IT Graduate",
+    "Developer Profile",
+    "Clean Code Advocate",
+  ],
   openGraph: {
-    title: "About | Hung Nguyen Portfolio",
+    title: "About Me | Hung Nguyen - Full-stack Developer",
     description:
-      "Learn more about Hung Nguyen - a passionate full-stack developer.",
+      "Full-stack Developer from Vietnam with 4+ years of experience. Passionate about building scalable, high-performance web applications.",
+    type: "profile",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "About Hung Nguyen | Full-stack Developer",
+    description:
+      "Full-stack Developer with 4+ years of experience, passionate about clean code and modern web technologies.",
+  },
+  alternates: {
+    canonical: "/about",
   },
 };
 
