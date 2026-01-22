@@ -18,6 +18,43 @@ interface StreamingTextProps {
 	onUpdate?: () => void;
 }
 
+interface TypingTextProps {
+	text: string;
+	onComplete?: () => void;
+	onUpdate?: () => void;
+}
+
+const TypingText = memo(({ text, onComplete, onUpdate }: TypingTextProps) => {
+	const [displayText, setDisplayText] = useState("");
+	const currentIndexRef = useRef(0);
+
+	useEffect(() => {
+		if (!text || currentIndexRef.current >= text.length) {
+			if (currentIndexRef.current >= text.length && text) {
+				onComplete?.();
+			}
+			return;
+		}
+
+		const timer = setTimeout(() => {
+			// Add 1-3 characters at a time for natural typing effect
+			const charsToAdd = Math.min(
+				Math.floor(Math.random() * 3) + 1,
+				text.length - currentIndexRef.current
+			);
+			currentIndexRef.current += charsToAdd;
+			setDisplayText(text.slice(0, currentIndexRef.current));
+			onUpdate?.();
+		}, 20); // 20ms between updates for smooth ChatGPT-like effect
+
+		return () => clearTimeout(timer);
+	}, [displayText, text, onComplete, onUpdate]);
+
+	return <>{displayText}</>;
+});
+
+TypingText.displayName = "TypingText";
+
 const StreamingText = memo(({ streamingRef, onUpdate }: StreamingTextProps) => {
 	const [displayText, setDisplayText] = useState("");
 	const animationRef = useRef<number | null>(null);
@@ -26,7 +63,8 @@ const StreamingText = memo(({ streamingRef, onUpdate }: StreamingTextProps) => {
 
 	useEffect(() => {
 		const animate = (timestamp: number) => {
-			if (timestamp - lastUpdateRef.current < 16) {
+			// Control speed: 30ms between updates for smooth typing effect (like ChatGPT)
+			if (timestamp - lastUpdateRef.current < 30) {
 				animationRef.current = requestAnimationFrame(animate);
 				return;
 			}
@@ -35,8 +73,9 @@ const StreamingText = memo(({ streamingRef, onUpdate }: StreamingTextProps) => {
 			const targetText = streamingRef.current || "";
 
 			if (currentIndexRef.current < targetText.length) {
+				// Add 1-2 characters at a time for natural typing effect
 				const charsToAdd = Math.min(
-					3,
+					Math.random() > 0.5 ? 2 : 1,
 					targetText.length - currentIndexRef.current
 				);
 				currentIndexRef.current += charsToAdd;
@@ -122,6 +161,7 @@ const AIAssistant = () => {
 		null
 	);
 	const streamingContentRef = useRef<string | null>("");
+	const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
 	const [userId] = useState<string>(() => getOrCreateUserId());
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -209,6 +249,7 @@ const AIAssistant = () => {
 					)
 				);
 				setStreamingMessageId(null);
+				setTypingMessageId(messageId);
 				streamingContentRef.current = "";
 			} catch (error) {
 				console.error("Error calling AI API:", error);
@@ -223,6 +264,7 @@ const AIAssistant = () => {
 					)
 				);
 				setStreamingMessageId(null);
+				setTypingMessageId(messageId);
 				streamingContentRef.current = "";
 			}
 		},
@@ -401,73 +443,91 @@ const AIAssistant = () => {
 									"scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
 								)}
 							>
-								{messages.map((message) => (
-									<motion.div
-										key={message.id}
-										initial={{ opacity: 0, y: 10 }}
-										animate={{ opacity: 1, y: 0 }}
-										transition={{ duration: 0.3 }}
-										className={cn(
-											"flex gap-3",
-											message.role === "user" ? "justify-end" : "justify-start"
-										)}
-									>
-										{message.role === "assistant" && (
-											<div
-												className={cn(
-													"shrink-0 h-8 w-8 rounded-full",
-													"bg-primary/10 text-primary",
-													"flex items-center justify-center"
-												)}
-											>
-												<Bot className="h-4 w-4" />
-											</div>
-										)}
-										<div
+								{messages.map((message) => {
+									const isStreaming = message.id === streamingMessageId;
+									const isTyping = message.id === typingMessageId;
+									const hasContent = message.content || streamingContentRef.current;
+
+									// Don't render streaming message if it has no content yet
+									if (isStreaming && !hasContent) {
+										return null;
+									}
+
+									return (
+										<motion.div
+											key={message.id}
+											initial={{ opacity: 0, y: 10 }}
+											animate={{ opacity: 1, y: 0 }}
+											transition={{ duration: 0.3 }}
 											className={cn(
-												"max-w-[80%] rounded-lg px-4 py-2 text-sm",
-												message.role === "user"
-													? "bg-primary text-primary-foreground"
-													: "bg-muted text-muted-foreground"
+												"flex gap-3",
+												message.role === "user" ? "justify-end" : "justify-start"
 											)}
 										>
-											<p className="whitespace-pre-wrap wrap-break-word">
-												{message.id === streamingMessageId ? (
-													<StreamingText
-														streamingRef={streamingContentRef}
-														onUpdate={scrollToBottom}
-													/>
-												) : (
-													message.content
-												)}
-											</p>
-											<span
-												className={cn(
-													"text-xs mt-1 block",
-													message.role === "user"
-														? "text-primary-foreground/70"
-														: "text-muted-foreground/70"
-												)}
-											>
-												{message.timestamp.toLocaleTimeString("en-US", {
-													hour: "2-digit",
-													minute: "2-digit",
-												})}
-											</span>
-										</div>
-										{message.role === "user" && (
+											{message.role === "assistant" && (
+												<div
+													className={cn(
+														"shrink-0 h-8 w-8 rounded-full",
+														"bg-primary/10 text-primary",
+														"flex items-center justify-center"
+													)}
+												>
+													<Bot className="h-4 w-4" />
+												</div>
+											)}
 											<div
 												className={cn(
-													"shrink-0 h-8 w-8 rounded-full",
-													"bg-primary/10 text-primary",
-													"flex items-center justify-center"
+													"max-w-[80%] rounded-lg px-4 py-2 text-sm",
+													message.role === "user"
+														? "bg-primary text-primary-foreground"
+														: "bg-muted text-muted-foreground"
 												)}
 											>
-												<User className="h-4 w-4" />
+												<p className="whitespace-pre-wrap wrap-break-word">
+													{isStreaming ? (
+														<StreamingText
+															streamingRef={streamingContentRef}
+															onUpdate={scrollToBottom}
+														/>
+													) : isTyping && message.role === "assistant" ? (
+														<TypingText
+															key={message.id}
+															text={message.content}
+															onUpdate={scrollToBottom}
+															onComplete={() => setTypingMessageId(null)}
+														/>
+													) : (
+														message.content
+													)}
+												</p>
+												<span
+													className={cn(
+														"text-xs mt-1 block",
+														message.role === "user"
+															? "text-primary-foreground/70"
+															: "text-muted-foreground/70"
+													)}
+												>
+													{message.timestamp.toLocaleTimeString("en-US", {
+														hour: "2-digit",
+														minute: "2-digit",
+													})}
+												</span>
 											</div>
-										)}
-									</motion.div>
-								))}
+											{message.role === "user" && (
+												<div
+													className={cn(
+														"shrink-0 h-8 w-8 rounded-full",
+														"bg-primary/10 text-primary",
+														"flex items-center justify-center"
+													)}
+												>
+													<User className="h-4 w-4" />
+												</div>
+											)}
+										</motion.div>
+									);
+								})}
 								{isLoading && (
 									<motion.div
 										initial={{ opacity: 0 }}

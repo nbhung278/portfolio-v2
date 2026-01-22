@@ -95,10 +95,8 @@ IMPORTANT:
 Chat like Hung is online and ready to connect!`;
 
 const RATE_LIMIT_MESSAGES = {
-	perMinute:
-		"Rate limit exceeded. You can only send 1 question per minute. Please try again later.",
 	perDay:
-		"Daily limit reached. You've used all 10 questions for today. Please try again tomorrow.",
+		"Daily limit reached. You've used all 100 questions for today. Please try again tomorrow.",
 };
 
 type RequestBody = {
@@ -119,23 +117,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		const now = new Date();
-		const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
 		const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-		const { data: recentRequests, error: recentError } = await supabase
-			.from("ai_history")
-			.select("created_at")
-			.eq("user_id", userId)
-			.gte("created_at", oneMinuteAgo.toISOString())
-			.order("created_at", { ascending: false })
-			.limit(1);
-
-		if (!recentError && recentRequests && recentRequests.length > 0) {
-			return NextResponse.json(
-				{ error: RATE_LIMIT_MESSAGES.perMinute },
-				{ status: 429 }
-			);
-		}
 
 		const { count: dailyCount, error: dailyError } = await supabase
 			.from("ai_history")
@@ -143,7 +125,7 @@ export async function POST(req: NextRequest) {
 			.eq("user_id", userId)
 			.gte("created_at", oneDayAgo.toISOString());
 
-		if (!dailyError && dailyCount !== null && dailyCount >= 10) {
+		if (!dailyError && dailyCount !== null && dailyCount >= 50) {
 			return NextResponse.json(
 				{ error: RATE_LIMIT_MESSAGES.perDay },
 				{ status: 429 }
