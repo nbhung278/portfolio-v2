@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
 	BedrockRuntimeClient,
-	InvokeModelCommand,
+	InvokeModelWithResponseStreamCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// Init Supabase
 const supabase: SupabaseClient = createClient(
 	process.env.SUPABASE_URL || "",
 	process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
 
-// Init AWS Bedrock Runtime client
 const bedrock = new BedrockRuntimeClient({
 	region: process.env.AWS_REGION || "ap-southeast-1",
 	credentials: {
@@ -20,82 +18,88 @@ const bedrock = new BedrockRuntimeClient({
 	},
 });
 
-// Context prompt cho AI Assistant
-const SYSTEM_PROMPT = `Bạn là Nguyễn Bá Hưng (Peter), một Fullstack Developer trẻ trung, nhiệt huyết với hơn 4 năm kinh nghiệm. Bạn đang trò chuyện trực tiếp với người ghé thăm portfolio của mình.
+const SYSTEM_PROMPT = `You are Nguyen Ba Hung (Peter), an enthusiastic Fullstack Developer with 4+ years of experience. You're chatting directly with visitors to your portfolio.
 
-🎯 TÍNH CÁCH & PHONG CÁCH GIAO TIẾP:
-- Thân thiện, gần gũi như đang tâm sự với bạn bè
-- Nhiệt tình, luôn sẵn sàng chia sẻ kinh nghiệm
-- Tự tin nhưng không tự phụ, khiêm tốn khi cần
-- Thích dùng emoji phù hợp để tạo không khí thoải mái (nhưng không lạm dụng)
-- Hay đặt câu hỏi lại để hiểu rõ hơn nhu cầu của người hỏi
-- Thích chia sẻ câu chuyện thực tế từ các dự án đã làm
-- Không nói như robot, tránh câu văn sáo mòn như "Cảm ơn bạn đã hỏi", "Tôi rất vui được..."
+PERSONALITY & COMMUNICATION STYLE:
+- Friendly and approachable, like chatting with a friend
+- Enthusiastic, always ready to share experiences
+- Confident but not arrogant, humble when needed
+- Use appropriate emojis to create a relaxed atmosphere (but don't overuse)
+- Ask follow-up questions to better understand the visitor's needs
+- Love sharing real stories from projects
+- Don't sound robotic, avoid clichés like "Thank you for asking", "I'm happy to help..."
 
-💬 CÁCH TRẢ LỜI:
-- Ngắn gọn, súc tích, tập trung vào điểm chính
-- Dùng ngôn ngữ đời thường, dễ hiểu
-- Thêm chi tiết thú vị, kinh nghiệm thực tế khi phù hợp
-- Kết thúc bằng câu hỏi mở hoặc gợi ý để tiếp tục cuộc trò chuyện
-- Nếu người dùng hỏi về kỹ thuật: trả lời cụ thể + chia sẻ kinh nghiệm thực tế
-- Nếu người dùng hỏi về dự án: kể story, thách thức đã vượt qua
-- Nếu người dùng muốn liên hệ: nhiệt tình, tạo cảm giác dễ tiếp cận
+RESPONSE GUIDELINES:
+- Keep it concise, focus on key points
+- Use everyday language, easy to understand
+- Add interesting details and real experiences when appropriate
+- End with an open question or suggestion to continue the conversation
+- For technical questions: give specific answers + share real experience
+- For project questions: tell the story, challenges overcome
+- For contact inquiries: be enthusiastic, make yourself approachable
 
-📋 THÔNG TIN CÁ NHÂN:
-Tôi là Hưng, 26 tuổi, đang làm Fullstack Developer tại Hà Nội.
+PERSONAL INFO:
+I'm Hung, 26 years old, working as a Fullstack Developer in Hanoi, Vietnam.
 
-KINH NGHIỆM NỔI BẬT:
-✅ Chatty App (Avada Group) - Hiện tại
-   Đây là dự án tôi đang làm! Một app chat support cho Shopify với AI chatbot.
-   Điểm đặc biệt: Tích hợp OpenAI + Weaviate để AI có thể tìm sản phẩm và trả lời khách tự động.
-   Tech: React, Koa.js, Google Cloud, Redis, OpenAI API
-   Team: 20 người - Môi trường năng động!
+KEY EXPERIENCE:
+- Chatty App (Avada Group) - Current
+  Chat support app for Shopify with AI chatbot.
+  Highlight: Integrated OpenAI + Weaviate for AI-powered product search and auto-responses.
+  Tech: React, Koa.js, Google Cloud, Redis, OpenAI API
+  Team: 20 people - Dynamic environment!
 
-✅ Insida App (Freelance) - Hiện tại
-   Dự án freelance với khách hàng Úc - mạng xã hội về bất động sản.
-   Thử thách: Làm việc với khách nước ngoài, handle real-time chat, map integration.
-   Tech: Next.js, Node.js, AWS, MongoDB, Docker, Redis
-   Học được nhiều về communication + AWS infrastructure!
+- Insida App (Freelance) - Current
+  Freelance project with Australian client - real estate social network.
+  Challenges: Working with international clients, real-time chat, map integration.
+  Tech: Next.js, Node.js, AWS, MongoDB, Docker, Redis
+  Learned a lot about communication + AWS infrastructure!
 
-✅ Emso Social Network (EMSO JSC) - 9 tháng
-   Mạng xã hội kiểu "all-in-one" cho người Việt: chat, livestream, e-commerce.
-   Role: Frontend Dev - maintain module marketplace (shopping).
-   Tích hợp payment gateway với ngân hàng + credit card.
-   Tech: React, Redux Saga, Microservices, SocketIO
+- Emso Social Network (EMSO JSC) - 9 months
+  All-in-one social network for Vietnamese users: chat, livestream, e-commerce.
+  Role: Frontend Dev - maintained marketplace module.
+  Integrated payment gateway with banks + credit cards.
+  Tech: React, Redux Saga, Microservices, SocketIO
 
-KỸ NĂNG MẠNH:
-💻 Frontend: React, Next.js, TypeScript - code UI mượt mà
-⚙️ Backend: Node.js, NestJS, GraphQL - xây API scalable
-☁️ Cloud: AWS (có cert!), Google Cloud, Firebase, Docker
-🗄️ Database: PostgreSQL, MongoDB, Redis - tùy bài toán mà chọn
-🎨 UX/UI: Hiểu design, làm việc tốt với designer
+STRONG SKILLS:
+- Frontend: React, Next.js, TypeScript - smooth UI development
+- Backend: Node.js, NestJS, GraphQL - scalable APIs
+- Cloud: AWS (certified!), Google Cloud, Firebase, Docker
+- Database: PostgreSQL, MongoDB, Redis - choosing the right tool for the job
+- UX/UI: Understanding design, working well with designers
 
-CHỨNG CHỈ ĐÁNG TỰ HÀO:
-🏆 AWS Certified Developer - Associate (vừa thi đỗ 7/2025!)
+CERTIFICATION:
+AWS Certified Developer - Associate (passed July 2025!)
 
-LIÊN HỆ:
-📧 Email: nbhung278@gmail.com (ping mình nhé!)
-📱 Phone: 0857560008
-💻 GitHub: github.com/nbhung278 (check code của mình nha)
-📍 Location: Hà Đông, Hà Nội
+CONTACT:
+- Email: nbhung278@gmail.com
+- Phone: 0857560008
+- GitHub: github.com/nbhung278
+- Location: Ha Dong, Hanoi, Vietnam
 
-🎯 NHIỆM VỤ:
-1. Trò chuyện tự nhiên, không cứng nhắc
-2. Chia sẻ story thực tế từ các dự án
-3. Hỏi lại để hiểu rõ nhu cầu: "Bạn đang tìm dev cho dự án gì đấy?" hoặc "Bạn quan tâm công nghệ nào nhất?"
-4. Nếu là recruiter: Highlight AWS cert, kinh nghiệm full-stack, làm cả freelance
-5. Nếu hỏi về tech: Giải thích đơn giản + ví dụ thực tế từ dự án
-6. Kết thúc bằng câu hỏi/gợi ý: "Bạn muốn nghe thêm về dự án nào không?" hoặc "Mình có thể giúp gì thêm?"
-7. Dùng emoji tự nhiên: 😊 🚀 💻 ✨ 🎯 (nhưng đừng spam)
+GUIDELINES:
+1. Chat naturally, don't be stiff
+2. Share real stories from projects
+3. Ask follow-up questions: "What kind of project are you looking for a dev for?" or "What technology interests you most?"
+4. For recruiters: Highlight AWS cert, full-stack experience, freelance work
+5. For tech questions: Explain simply + give real examples from projects
+6. End with questions/suggestions: "Want to hear more about any project?" or "How else can I help?"
+7. Use emojis naturally: 😊 🚀 💻 ✨ 🎯 (but don't spam)
 
-LƯU Ý:
-- ĐỪNG nói: "Tôi là AI assistant", "Cảm ơn bạn đã hỏi", "Tôi rất vui được hỗ trợ"
-- NÊN nói: "Ừm", "À", "Đúng rồi", "Thực ra thì", "Mình có kinh nghiệm về..."
-- Trả lời ngắn gọn (2-4 câu), nhưng có chiều sâu
-- Nếu không biết thông tin: "Hm, câu này mình chưa rõ lắm. Nhưng mà..." rồi gợi ý hướng khác
-- Luôn tạo cảm giác đang chat với người thật, không phải bot!
+IMPORTANT:
+- DON'T say: "I am an AI assistant", "Thank you for asking", "I'm happy to help"
+- DO say: "Well", "Actually", "That's right", "In my experience..."
+- Keep responses concise (2-4 sentences) but meaningful
+- If unsure: "Hmm, I'm not sure about that. But..." then suggest alternatives
+- Always feel like chatting with a real person, not a bot!
 
-Hãy trò chuyện như Hưng đang online và sẵn sàng kết nối!`;
+Chat like Hung is online and ready to connect!`;
+
+const RATE_LIMIT_MESSAGES = {
+	perMinute:
+		"Rate limit exceeded. You can only send 1 question per minute. Please try again later.",
+	perDay:
+		"Daily limit reached. You've used all 10 questions for today. Please try again tomorrow.",
+};
 
 type RequestBody = {
 	prompt: string;
@@ -114,12 +118,10 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		// Rate limiting: Kiểm tra giới hạn request theo user_id
 		const now = new Date();
-		const oneMinuteAgo = new Date(now.getTime() - 60 * 1000); // 1 phút trước
-		const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 giờ trước
+		const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
+		const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-		// Kiểm tra request gần nhất (trong vòng 1 phút) theo user_id
 		const { data: recentRequests, error: recentError } = await supabase
 			.from("ai_history")
 			.select("created_at")
@@ -128,56 +130,32 @@ export async function POST(req: NextRequest) {
 			.order("created_at", { ascending: false })
 			.limit(1);
 
-		if (recentError) {
-			console.error("Error checking recent request:", recentError);
-			// Tiếp tục xử lý nếu có lỗi khi check limit
-		} else if (recentRequests && recentRequests.length > 0) {
+		if (!recentError && recentRequests && recentRequests.length > 0) {
 			return NextResponse.json(
-				{
-					error: "Bạn chỉ có thể gửi 1 câu hỏi mỗi phút. Vui lòng thử lại sau.",
-				},
+				{ error: RATE_LIMIT_MESSAGES.perMinute },
 				{ status: 429 }
 			);
 		}
 
-		// Kiểm tra số lượng requests trong ngày (tối đa 10 requests) theo user_id
 		const { count: dailyCount, error: dailyError } = await supabase
 			.from("ai_history")
 			.select("*", { count: "exact", head: true })
 			.eq("user_id", userId)
 			.gte("created_at", oneDayAgo.toISOString());
 
-		if (dailyError) {
-			console.error("Error checking daily limit:", dailyError);
-			// Tiếp tục xử lý nếu có lỗi khi check limit
-		} else if (dailyCount !== null && dailyCount >= 10) {
+		if (!dailyError && dailyCount !== null && dailyCount >= 10) {
 			return NextResponse.json(
-				{
-					error:
-						"Bạn đã đạt giới hạn 10 câu hỏi mỗi ngày. Vui lòng thử lại vào ngày mai.",
-				},
+				{ error: RATE_LIMIT_MESSAGES.perDay },
 				{ status: 429 }
 			);
 		}
 
-		// Chuẩn bị request body cho Nova Micro
-		// Nova Micro không hỗ trợ role "system" trong messages
-		// Thay vào đó, sử dụng field "system" riêng biệt (có thể là string hoặc array)
-		// Content phải là array với object có field "text"
 		const requestBody = {
-			system: [
-				{
-					text: SYSTEM_PROMPT,
-				},
-			],
+			system: [{ text: SYSTEM_PROMPT }],
 			messages: [
 				{
 					role: "user" as const,
-					content: [
-						{
-							text: prompt,
-						},
-					],
+					content: [{ text: prompt }],
 				},
 			],
 			inferenceConfig: {
@@ -187,120 +165,67 @@ export async function POST(req: NextRequest) {
 			},
 		};
 
-		// Nova Micro yêu cầu sử dụng Inference Profile ID thay vì foundation model ID
-		// System-defined inference profile ID cho APAC region: apac.amazon.nova-micro-v1:0
-		// Hoặc có thể dùng application inference profile ARN nếu đã tạo
 		const inferenceProfileId =
 			process.env.BEDROCK_INFERENCE_PROFILE_ID || "apac.amazon.nova-micro-v1:0";
 
-		const command = new InvokeModelCommand({
+		const command = new InvokeModelWithResponseStreamCommand({
 			modelId: inferenceProfileId,
 			contentType: "application/json",
 			accept: "application/json",
 			body: JSON.stringify(requestBody),
 		});
 
-		const result = await bedrock.send(command);
+		const response = await bedrock.send(command);
+		let fullResponse = "";
 
-		// Parse response từ Bedrock
-		if (!result.body) {
-			throw new Error("Empty response from Bedrock");
-		}
+		const stream = new ReadableStream({
+			async start(controller) {
+				const encoder = new TextEncoder();
 
-		// Decode response body từ Uint8Array
-		const responseText = new TextDecoder().decode(result.body);
-		let responseBody: unknown;
-
-		try {
-			responseBody = JSON.parse(responseText);
-		} catch {
-			// Nếu không parse được JSON, dùng text trực tiếp
-			responseBody = responseText;
-		}
-
-		// Nova Micro trả về response trong format: { output: { message: { content: [{ text: "..." }] } } }
-		let text = "";
-		if (typeof responseBody === "string") {
-			text = responseBody;
-		} else if (typeof responseBody === "object" && responseBody !== null) {
-			const body = responseBody as Record<string, unknown>;
-
-			// Format chuẩn của Nova Micro: output.message.content[0].text
-			if (
-				typeof body.output === "object" &&
-				body.output !== null &&
-				"message" in body.output
-			) {
-				const output = body.output as Record<string, unknown>;
-				const message = output.message as Record<string, unknown>;
-
-				// Content là array với object có field text
-				if (Array.isArray(message.content) && message.content[0]) {
-					const contentItem = message.content[0] as Record<string, unknown>;
-					if (typeof contentItem.text === "string") {
-						text = contentItem.text;
+				try {
+					if (response.body) {
+						for await (const event of response.body) {
+							if (event.chunk?.bytes) {
+								const chunkText = new TextDecoder().decode(event.chunk.bytes);
+								try {
+									const parsed = JSON.parse(chunkText);
+									if (parsed.contentBlockDelta?.delta?.text) {
+										const text = parsed.contentBlockDelta.delta.text;
+										fullResponse += text;
+										controller.enqueue(
+											encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
+										);
+									}
+								} catch {
+									/* ignore non-JSON chunks */
+								}
+							}
+						}
 					}
-				} else if (typeof message.content === "string") {
-					text = message.content;
-				} else if (typeof message.text === "string") {
-					text = message.text;
-				}
-			}
-			// Fallback formats
-			else if (Array.isArray(body.content) && body.content[0]) {
-				const contentItem = body.content[0] as Record<string, unknown>;
-				if (typeof contentItem.text === "string") {
-					text = contentItem.text;
-				}
-			} else if (typeof body.text === "string") {
-				text = body.text;
-			} else if (
-				typeof body.message === "object" &&
-				body.message !== null &&
-				"content" in body.message
-			) {
-				const message = body.message as Record<string, unknown>;
-				if (Array.isArray(message.content) && message.content[0]) {
-					const contentItem = message.content[0] as Record<string, unknown>;
-					if (typeof contentItem.text === "string") {
-						text = contentItem.text;
-					}
-				} else if (typeof message.content === "string") {
-					text = message.content;
-				}
-			} else {
-				// Fallback: log để debug và trả về message lỗi
-				console.error(
-					"Unexpected response format:",
-					JSON.stringify(responseBody, null, 2)
-				);
-				text = "Xin lỗi, tôi gặp vấn đề khi xử lý phản hồi. Vui lòng thử lại.";
-			}
-		} else {
-			// Fallback: log để debug và trả về message lỗi
-			console.error("Unexpected response format:", responseBody);
-			text = "Xin lỗi, tôi gặp vấn đề khi xử lý phản hồi. Vui lòng thử lại.";
-		}
 
-		// Lưu vào Supabase
-		try {
-			const { error: insertError } = await supabase.from("ai_history").insert({
-				user_id: userId,
-				prompt: prompt,
-				response: text,
-				created_at: new Date().toISOString(),
-			});
+					controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+					controller.close();
 
-			if (insertError) {
-				console.error("Supabase insert error:", insertError);
-				// Không throw error, chỉ log để không làm gián đoạn response
-			}
-		} catch (dbError) {
-			console.error("Database error:", dbError);
-			// Tiếp tục trả response cho user dù có lỗi DB
-		}
+					await supabase.from("ai_history").insert({
+						user_id: userId,
+						prompt: prompt,
+						response: fullResponse,
+						created_at: new Date().toISOString(),
+					});
+				} catch (error) {
+					console.error("Stream error:", error);
+					controller.error(error);
+				}
+			},
+		});
 
-		return NextResponse.json({ response: text });
+		return new Response(stream, {
+			headers: {
+				"Content-Type": "text/event-stream",
+				"Cache-Control": "no-cache",
+				Connection: "keep-alive",
+			},
+		});
 	} catch (err) {
 		console.error("API Error:", err);
 		const errorMessage =

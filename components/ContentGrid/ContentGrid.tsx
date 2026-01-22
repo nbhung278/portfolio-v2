@@ -67,7 +67,6 @@ const downloadFile = (path: string, filename?: string) => {
 
 const RESUME_PATH = "/downloads/Nguyen-Ba-Hung-11112025.pdf";
 
-// Memoized file item component to avoid recreating on every render
 const FileItem = memo(({ file }: { file: (typeof files)[number] }) => {
   const handleDownload = useCallback(() => {
     downloadFile(RESUME_PATH, file.name);
@@ -99,7 +98,6 @@ const FileItem = memo(({ file }: { file: (typeof files)[number] }) => {
 
 FileItem.displayName = "FileItem";
 
-// Memoized background components
 const ResumeBackground = memo(() => {
   const fileItems = useMemo(
     () => files.map((file) => <FileItem key={file.name} file={file} />),
