@@ -66,7 +66,11 @@ const AIAssistant = () => {
 
 	useEffect(() => {
 		if (isOpen && inputRef.current) {
-			inputRef.current.focus();
+			// Delay focus để tránh zoom popup khi bàn phím ảo mở trên mobile
+			const timeoutId = setTimeout(() => {
+				inputRef.current?.focus({ preventScroll: true });
+			}, 400); // Đợi animation hoàn thành
+			return () => clearTimeout(timeoutId);
 		}
 	}, [isOpen]);
 
@@ -483,6 +487,7 @@ const AIAssistant = () => {
 										style={{
 											minHeight: "40px",
 											maxHeight: "128px",
+											fontSize: "16px", // Ngăn iOS zoom khi focus input
 										}}
 										onInput={(e) => {
 											const target = e.target as HTMLTextAreaElement;
