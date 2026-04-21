@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, memo } from "react";
 import { Button } from "@/components/ui/button";
-import { Github, Heart, Menu, X } from "lucide-react";
+import { Github, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Highlighter } from "./ui/highlighter";
 import { usePathname } from "next/navigation";
@@ -94,13 +94,6 @@ const Header = memo(() => {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            <Button
-              variant="outline"
-              className="cursor-pointer rounded-lg text-center bg-secondary/60 text-secondary-foreground hover:bg-secondary/80"
-            >
-              <Heart className="h-4 w-4 text-destructive" />
-              <span className="sr-only sm:not-sr-only sm:ml-2">Sponsor</span>
-            </Button>
             <Button
               variant="outline"
               size="icon"
