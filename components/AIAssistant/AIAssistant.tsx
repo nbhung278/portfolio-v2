@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from "
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { MessageContent } from "./MessageContent";
 
 interface Message {
 	id: string;
@@ -189,19 +190,23 @@ const MessageBubble = memo(({
 						: "bg-muted text-muted-foreground"
 				)}
 			>
-				<p className="whitespace-pre-wrap wrap-break-word">
+				<div className="whitespace-pre-wrap wrap-break-word">
 					{isStreaming ? (
-						<StreamingText streamingRef={streamingContentRef} />
+						<p><StreamingText streamingRef={streamingContentRef} /></p>
 					) : isTyping && message.role === "assistant" ? (
-						<TypingText
-							key={message.id}
-							text={message.content}
-							onComplete={onTypingComplete}
-						/>
+						<p>
+							<TypingText
+								key={message.id}
+								text={message.content}
+								onComplete={onTypingComplete}
+							/>
+						</p>
+					) : message.role === "assistant" ? (
+						<MessageContent content={message.content} />
 					) : (
-						message.content
+						<p>{message.content}</p>
 					)}
-				</p>
+				</div>
 				<span
 					className={cn(
 						"text-xs mt-1 block",
