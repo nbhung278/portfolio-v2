@@ -5,6 +5,7 @@ import { ViewportProvider } from "@/components/providers/viewport-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { cn } from "@/lib/utils";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 import Navbar from "@/components/Navbar";
 import AIAssistant from "@/components/AIAssistant";
@@ -182,6 +183,7 @@ export default function RootLayout({
 								<Navbar />
 								{children}
 								<AIAssistant />
+								<SpeedInsights/>
 								<Analytics />
 							</main>
 						</div>
