@@ -20,8 +20,8 @@ export default function AboutPage() {
 		degree: "Bachelor's Degree",
 		major: "Information Technology / E-commerce",
 		achievements: [
-			"Achieved good results in many specialized information technology subjects, such as database and web programming",
-			"Foreign language certificate equivalent to a B2 certificate",
+			"Graduated with good results in Database Systems, Web Programming, and E-commerce specialization",
+			"Foreign language certificate equivalent to B1 level (CEFR)",
 		],
 	};
 
@@ -126,22 +126,20 @@ export default function AboutPage() {
 							</p>
 							<div className="space-y-3 text-muted-foreground leading-relaxed">
 								<p>
-									I am a web developer with over 4 years of experience,
-									including more than 1 year in backend development using
-									Laravel and around 3 years specializing in Node.js and
-									ReactJS.
+									I am a Full-Stack Developer with 4+ years of experience
+									designing and delivering scalable web applications across
+									product, freelance, and enterprise environments.
 								</p>
 								<p>
-									I have a strong grasp of architectural design, UX/UI
-									principles, and software design patterns. My experience spans
-									frontend and backend technologies, including Next.js, NestJS,
-									Docker, Redis, and Pub/Sub, enabling me to build scalable,
-									high-performance, and maintainable systems.
+									Proficient in React, Next.js, NestJS, GraphQL, and PostgreSQL,
+									with hands-on experience in cloud infrastructure (AWS, Google
+									Cloud), real-time systems (SocketIO, Redis), and AI
+									integration (OpenAI, Weaviate).
 								</p>
 								<p>
-									I also work with cloud platforms such as Firebase and AWS,
-									implement CI/CD pipelines, and design serverless architectures
-									to deliver secure and efficient cloud-native applications.
+									Certified AWS Developer and Claude Code practitioner —
+									comfortable working across the full stack, from architecting
+									backend services to crafting polished, performant UIs.
 								</p>
 							</div>
 						</motion.div>

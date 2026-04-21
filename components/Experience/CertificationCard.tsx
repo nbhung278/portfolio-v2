@@ -22,7 +22,7 @@ const CertificationCard = memo(({ certification }: CertificationCardProps) => {
 				cardStyles.darkShadow,
 				certification.featured &&
 					"ring-2 ring-primary/20 dark:ring-primary/30 shadow-lg shadow-primary/10",
-				"hover:scale-[1.02] hover:shadow-xl"
+				"hover:scale-[1.02] hover:shadow-xl",
 			)}
 		>
 			{certification.featured && (
@@ -35,13 +35,13 @@ const CertificationCard = memo(({ certification }: CertificationCardProps) => {
 			)}
 
 			{certification.logo && (
-				<div className="flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-background p-8 min-h-[180px]">
+				<div className="flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-background p-8 h-[220px]">
 					<Image
 						src={certification.logo}
 						alt={certification.name}
-						width={150}
-						height={150}
-						className="object-contain"
+						width={300}
+						height={200}
+						className="max-h-full max-w-full object-contain"
 					/>
 				</div>
 			)}
@@ -61,15 +61,17 @@ const CertificationCard = memo(({ certification }: CertificationCardProps) => {
 						<Calendar className="h-3.5 w-3.5" />
 						<span>Issued: {certification.date}</span>
 					</div>
-					{certification.expiryDate && (
-						<div className="flex items-center gap-2">
-							<Calendar className="h-3.5 w-3.5" />
-							<span>Expires: {certification.expiryDate}</span>
-						</div>
-					)}
+					<div className="flex items-center gap-2">
+						<Calendar className="h-3.5 w-3.5" />
+						<span>
+							{certification.expiryDate
+								? `Expires: ${certification.expiryDate}`
+								: "No Expiration"}
+						</span>
+					</div>
 				</div>
 
-				{certification.credentialUrl && (
+				{certification.credentialUrl ? (
 					<Button
 						variant="outline"
 						size="sm"
@@ -86,6 +88,14 @@ const CertificationCard = memo(({ certification }: CertificationCardProps) => {
 							<span className="text-xs font-medium">View Credential</span>
 						</a>
 					</Button>
+				) : (
+					<div
+						aria-disabled="true"
+						className="mt-auto flex h-9 w-full items-center justify-center gap-2 rounded-md border border-input bg-background text-xs font-medium opacity-50"
+					>
+						<ExternalLink className="h-3.5 w-3.5" />
+						<span>View Credential</span>
+					</div>
 				)}
 			</div>
 

@@ -20,6 +20,8 @@ const SKILL_CATEGORIES = [
 	{ title: "Backend", key: "backend" as const },
 	{ title: "Database", key: "database" as const },
 	{ title: "Cloud & Deployment", key: "cloud" as const },
+	{ title: "AI & Integrations", key: "ai" as const },
+	{ title: "Testing", key: "testing" as const },
 	{ title: "Tools & Others", key: "tools" as const },
 ];
 
@@ -33,7 +35,7 @@ export default function ExperiencePage() {
 				cy={1}
 				cr={1}
 				className={cn(
-					"mask-[radial-gradient(600px_circle_at_center,white,transparent)]"
+					"mask-[radial-gradient(600px_circle_at_center,white,transparent)]",
 				)}
 			/>
 
@@ -49,7 +51,8 @@ export default function ExperiencePage() {
 					</h1>
 					<p className="mx-auto max-w-2xl text-lg text-muted-foreground">
 						Over 4 years of professional experience in full-stack development,
-						building scalable applications and delivering high-quality solutions.
+						building scalable applications and delivering high-quality
+						solutions.
 					</p>
 				</motion.div>
 
@@ -62,7 +65,9 @@ export default function ExperiencePage() {
 				>
 					<div className="flex items-center gap-3 mb-6">
 						<Award className="h-6 w-6 text-primary" />
-						<h2 className="text-3xl font-bold text-foreground">Certifications</h2>
+						<h2 className="text-3xl font-bold text-foreground">
+							Certifications
+						</h2>
 					</div>
 					<motion.div
 						className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
@@ -92,7 +97,9 @@ export default function ExperiencePage() {
 				>
 					<div className="flex items-center gap-3 mb-8">
 						<Briefcase className="h-6 w-6 text-primary" />
-						<h2 className="text-3xl font-bold text-foreground">Work Experience</h2>
+						<h2 className="text-3xl font-bold text-foreground">
+							Work Experience
+						</h2>
 					</div>
 					<div className="space-y-0">
 						{workExperiences.map((experience, index) => (
@@ -128,7 +135,9 @@ export default function ExperiencePage() {
 				>
 					<div className="flex items-center gap-3 mb-6">
 						<Code className="h-6 w-6 text-primary" />
-						<h2 className="text-3xl font-bold text-foreground">Technical Skills</h2>
+						<h2 className="text-3xl font-bold text-foreground">
+							Technical Skills
+						</h2>
 					</div>
 					<motion.div
 						className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
