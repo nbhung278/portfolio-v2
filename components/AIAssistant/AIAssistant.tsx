@@ -554,8 +554,8 @@ const AIAssistant = () => {
 							exit={{ opacity: 0, scale: 0.8, y: 20 }}
 							transition={{ type: "spring", stiffness: 300, damping: 30 }}
 							className={cn(
-								"fixed bottom-28 right-6 sm:bottom-32 sm:right-10 z-50",
-								"w-[calc(100vw-3rem)] sm:w-full max-w-lg",
+								"fixed bottom-28 right-6 sm:bottom-27 sm:right-10 z-50",
+								"w-[calc(100vw-3rem)] sm:w-full max-w-md",
 								"h-[calc(100vh-9rem)] sm:h-[700px] sm:max-h-[85vh]",
 								"flex flex-col",
 								"bg-card border border-border rounded-lg",
